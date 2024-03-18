@@ -1,0 +1,66 @@
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'project was created on the fly to help store the decrypted SSN numbers in a supplement tables so it is printable on reports. 
+'created on 8/13/2020 by ADSOUZA
+F.Intrinsic.Control.Try
+	v.Local.bExists.declare
+	v.Local.sError.Declare
+	v.Local.sSSN.Declare
+	v.Local.iCount.Declare
+	V.Local.sMsg.Declare
+	V.Local.sFile.Declare
+	V.Local.sMsg2.Declare
+	
+	V.Local.sMsg.Set("Decrypting and Saving Data")
+	F.Intrinsic.UI.InvokeWaitDialog("Loading Data",V.Local.sMsg)
+	
+	'check if table exists
+	
+	f.ODBC.Connection!conx.OpenCompanyConnection
+	
+'	f.ODBC.Connection!conx.TableExists("GAB_SSEC_DEC",v.Local.bExists)
+'	'delete and recreate
+'	f.Intrinsic.control.If(v.Local.bExists)
+'		f.odbc.Connection!conx.Execute("DROP TABLE GAB_SSEC_DEC")
+'	f.Intrinsic.Control.EndIf
+'	
+'	f.odbc.Connection!conx.Execute("CREATE TABLE GAB_SSEC_DEC (EMPLOYEE CHAR(5),SSEC_DEC VARCHAR(50) );")
+	
+	'grab the employee ID and Encrypted SSN 
+	f.data.DataTable.CreateFromSQL("EMPDT","conx","Select RTRIM(Employee) as Employee,SOC_SEC_ENC,'' as SSEC_DEC from V_EMPLOYEE_MSTR")
+	'loop through and decryupt SSN and store in table
+	f.Intrinsic.Control.For(v.Local.iCount,0,v.DataTable.EMPDT.RowCount--,1)
+		f.Intrinsic.UI.ChangeWaitStatus("Decrypting",v.Local.iCount,0,v.DataTable.EMPDT.RowCount--)
+		F.Global.Encryption.Decrypt(V.Datatable.EMPDT(v.Local.iCount).SOC_SEC_ENC!FieldVal,V.local.sSSN)
+		f.Data.DataTable.SetValue("EMPDT",v.Local.iCount,"SSEC_DEC",v.Local.sSSN.trim)
+	f.Intrinsic.Control.Next(v.Local.iCount)
+	' remove encrypted column to make Save to DB easy.
+	f.Data.DataTable.RemoveColumn("EMPDT","SOC_SEC_ENC")
+
+	'f.Data.DataTable.SaveToDB("EMPDT","conx","GAB_SSEC_DEC","EMPLOYEE",256)
+	F.Intrinsic.UI.ChangeWaitStatus("Saving Data....")
+	F.Intrinsic.UI.CloseWaitDialog
+	F.Intrinsic.String.Build("{0}GAB_SSEC_DEC.csv",V.Caller.LocalGSSTempDir,V.Local.sFile)
+	F.Data.DataTable.SaveToCSV("EMPDT",V.Local.sFile,True)
+	
+	F.Intrinsic.String.Build("Processing Complete. File saved here: {0}",V.Local.sFile,V.Local.sMsg2)
+	F.Intrinsic.UI.Msgbox(V.Local.sMsg2,V.Local.sMsg)
+	F.Intrinsic.Task.ShellExec(0,"OPEN",V.Local.sFile,"","",1)
+	
+	F.ODBC.Connection!conx.Close
+	
+F.Intrinsic.Control.Catch
+	F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.ODBC.Connection!conx.Close()
+	F.Intrinsic.Control.End
+F.Intrinsic.Control.EndTry
+
+Program.Sub.Main.End
+
+Program.Sub.Comments.Start
+${$5$}$2.0.0.0$}$2
+${$6$}$avaldez$}$20201118095755089$}$CBUu04veoT9NExad5Mkb3ylWEN0INN4Amt0RL1Efv7N8V6DR0QKQ6hLlWoYA714N2g6n47xkieQ=
+Program.Sub.Comments.End
